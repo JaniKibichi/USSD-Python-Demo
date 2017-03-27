@@ -36,12 +36,15 @@ def ussd_callback():
     if user:
         session_level = SessionLevel.query.filter_by(session_id=session_id).first()
         if session_level:
-            if session_level.level == 1 or session_level.level == 0:
-                # serve lower reponses
-                return lowerUserLevels[user_response](user=user, session_id=session_id)
+            if user_response:
+                if session_level.level == 1 or session_level.level == 0:
+                    # serve lower reponses
+                    return lowerUserLevels[user_response](user=user, session_id=session_id)
+                else:
+                    # serve higher responses
+                    return respond("END serving higher responses")
             else:
-                # serve higher responses
-                return respond("END serving higher responses")
+                return default_menu(user, session_id)
         else:
             # add a new session level
             session_level = SessionLevel(phone_number=phone_number, session_id=session_id)
@@ -160,12 +163,15 @@ def pay_loan(session_id, user=None):
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
-def default_menu(user, session_id=None):
+def default_menu(user, session_id):
     # Return user to Main Menu & Demote user's level
     menu_text = "CON You have to choose a service.\n"
-    menu_text += "Press 0 to go back.\n"
+    menu_text += "Press 0 to go back to main menu.\n"
     # demote
-    user.demote_level()
+    session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+    session_level.demote_level()
+    db.session.add(session_level)
+    db.session.commit()
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
