@@ -1,3 +1,4 @@
+from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from . import db
 
@@ -7,7 +8,8 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64))
     phone_number = db.Column(db.Integer, unique=True, index=True, nullable=False)
-    location = db.Column(db.String(64))
+    city = db.Column(db.String(64))
+    registration_date = db.Column(db.DateTime(), default=datetime.utcnow)
     password_hash = db.Column(db.String(128))
 
     @property
@@ -21,6 +23,21 @@ class User(db.Model):
     def verify_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+    def __repr__(self):
+        return "User {}".format(self.name)
 
+
+class SessionLevel(db.Model):
+    __tablename__ = 'session_levels'
+    id = db.Column(db.Integer, primary_key=True)
+    session_id = db.Column(db.Text(128), unique=True)
+    phone_number = db.Column(db.String(25))
+    level = db.Column(db.Integer, default=0)
+
+    def promote_level(self, level=1):
+        self.level += level
+
+    def demote_level(self):
+        self.level = 0
 
 
