@@ -8,7 +8,7 @@ from . import api_v1
 
 @api_v1.route('/', methods=['POST', 'GET'])
 def index():
-    return jsonify({"message":"ok"})
+    return jsonify({"message": "ok"})
 
 
 @api_v1.route('/ussd/callback', methods=['POST', 'GET'])
@@ -19,7 +19,7 @@ def ussd_callback():
     text = request.values.get("text", "default")
 
     text_array = text.split("*")
-    user_response = text_array[len(text_array)-1]
+    user_response = text_array[len(text_array) - 1]
 
     lowerUserLevels = {
         "0": home,
@@ -32,7 +32,7 @@ def ussd_callback():
         "default": default_menu
     }
 
-    higherLevelResponses= {
+    higherLevelResponses = {
         9: {
             "1": c2b_checkout(phone_number, 1),
             "2": c2b_checkout(phone_number, 2),
@@ -46,41 +46,65 @@ def ussd_callback():
             "default": b2c_default()
         },
         11: {
-            "default": send_loan(session_id=session_id, creditor_phone_number=phone_number, deptor_phone_number=user_response)
+            "default": send_loan(session_id=session_id,
+                                 creditor_phone_number=phone_number,
+                                 deptor_phone_number=user_response)
         },
         12: {
-            "4": "",
-            "5": "",
-            "6": "",
-            "default": ""
+            "4": pay_loan(session_id=session_id, phone_number=phone_number, amount=1),
+            "5": pay_loan(session_id=session_id, phone_number=phone_number, amount=2),
+            "6": pay_loan(session_id=session_id, phone_number=phone_number, amount=3),
+            "default": default_loan_checkout()
+        },
+        "default":{
+            "default": default_loan_checkout()
         }
+    }
+
+    register_user = {
+        0: get_number(session_id, phone_number=phone_number, user_response=user_response),
+        1: get_name(session_id, phone_number=phone_number, user_response=user_response),
+        2: get_city(session_id, phone_number=phone_number, user_response=user_response),
+        "default": register_default(session_id)
     }
     user = User.query.filter_by(phone_number=phone_number).first()
     if user:
-        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        session_level = SessionLevel.query.filter_by(
+            session_id=session_id).first()
         if session_level:
             if user_response:
                 if session_level.level == 1 or session_level.level == 0:
                     # serve lower reponses
-                    return lowerUserLevels[user_response](user=user, session_id=session_id)
+                    return lowerUserLevels[user_response](
+                        user=user,
+                        session_id=session_id)
                 else:
-                    # serve higher responses
-                    level = session_level.level
-                    if len(user_response) < 2:
-                        return higherLevelResponses[level].get(user_response)
+                    if session_level in higherLevelResponses.keys():
+                        # serve higher responses
+                        level = session_level.level
+                        if len(user_response) >0 and len(user_response) < 1:
+                            return higherLevelResponses[level].get(user_response)
+                        else:
+                            return higherLevelResponses[level].get('default')
                     else:
-                        return higherLevelResponses[level].get('default')
+                        return default_higher_level_response["default"].get('default')
             else:
                 return default_menu(user, session_id)
         else:
             # add a new session level
-            session_level = SessionLevel(phone_number=phone_number, session_id=session_id)
+            session_level = SessionLevel(
+                phone_number=phone_number, session_id=session_id)
             db.session.add(session_level)
             db.session.commit()
             return home(user=user, session_id=session_id)
     else:
-        return respond("END you need to register before accession or services")
-
+        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        if session_level and session_level.level in register_user.keys():
+            return register_user[session_level.level]
+        elif session_level is None:
+            return register_user[1]
+        else:
+            return register_user["default"]
 
 # level 1
 def home(user, session_id):
@@ -96,7 +120,9 @@ def home(user, session_id):
     db.session.add(session_level)
     db.session.commit()
     # serve the menu
-    menu_text = "CON Welcome to Nerd Microfinance, {} Choose a service.\n".format(user.name)
+    menu_text = "CON Welcome to Nerd \
+    Microfinance, {} Choose a service.\n".format(
+        user.name)
     menu_text += " 1. Please call me.\n"
     menu_text += " 2. Deposit Money\n"
     menu_text += " 3. Withdraw Money\n"
@@ -113,11 +139,12 @@ def please_call(user, session_id=None):
     menu_text = "END Please wait while we place your call.\n"
 
     # make a call
-    caller  = "+254703554404"
+    caller = "+254703554404"
     recepient = user.phone_number
 
     # create a new instance of our awesome gateway
-    gateway = AfricasTalkingGateway(current_app.config["AT_USERNAME"],current_app.config["AT_APIKEY"])
+    gateway = AfricasTalkingGateway(
+        current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
     try:
         gateway.call(caller, recepient)
     except AfricasTalkingGateway as e:
@@ -156,7 +183,7 @@ def withdraw(session_id, user=None):
 
 def send_money(session_id, user=None):
     # Send Another User Some Money
-    menu_text =  "CON You can only send 1 shilling.\n"
+    menu_text = "CON You can only send 1 shilling.\n"
     menu_text += " Enter a valid phonenumber (like 0722122122)\n"
 
     # Update sessions to level 11
@@ -170,12 +197,13 @@ def buy_airtime(user, session_id=None):
     menu_text = "END Please wait while we load your account.\n"
 
     # Search DB and the Send Airtime
-    recipients = [{"phoneNumber": user.phone_number,  "amount": "KES 5"}]
+    recipients = [{"phoneNumber": user.phone_number, "amount": "KES 5"}]
     # JSON encode
     recipientStringFormat = json.dumps(recipients)
 
     # Create an instance of our gateway
-    gateway = AfricasTalkingGateway(current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
+    gateway = AfricasTalkingGateway(
+        current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
     try:
         menu_text += gateway.sendAirtime(recipientStringFormat)
     except AfricasTalkingGatewayException as e:
@@ -226,17 +254,17 @@ def c2b_checkout(phone_number, amount):
     product_name = "Nerd Payments"
     currency_code = "KES"
     amount = amount
-    metadata = {"sacco":"Nerds", "productId":"321"}
+    metadata = {"sacco": "Nerds", "productId": "321"}
 
     # pass to gateway
     try:
-        menu_text+= "transactionId is: %s" % \
-                    gateway.initiateMobilePaymentCheckout(
-                        product_name,
-                        phone_number,
-                        currency_code,
-                        amount,
-                        metadata)
+        menu_text += "transactionId is: %s" % \
+            gateway.initiateMobilePaymentCheckout(
+                product_name,
+                phone_number,
+                currency_code,
+                amount,
+                metadata)
 
     except AfricasTalkingGatewayException as e:
         menu_text += "Received error response: {}".format(str(e))
@@ -266,24 +294,25 @@ def b2c_checkout(phone_number, amount):
         menu_text += " KES {}/- shortly... \n".format(amount)
 
         # Declare Params
-        gateway = AfricasTalkingGateway(current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
+        gateway = AfricasTalkingGateway(
+            current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
         product_name = "Nerd Payments"
         recipients = [
             {"phoneNumber": phone_number,
              "currencyCode": "KES",
              "amount": amount, "metadata": [
-                {
-                    "name": "Client",
-                    "reason": "Withdrawal"
-                }
-            ]
+                 {
+                     "name": "Client",
+                     "reason": "Withdrawal"
+                 }
+             ]
              }
         ]
         # Send B2c
         try:
             gateway.mobilePaymentB2CRequest(product_name, recipients)
         except AfricasTalkingGatewayException as e:
-             menu_text += "Received error response {}".format(str(e))
+            menu_text += "Received error response {}".format(str(e))
     else:
         # Alert user of insufficient funds
         menu_text = "END Sorry, you dont have sufficient\n"
@@ -298,36 +327,41 @@ def b2c_default():
     return respond(menu_text)
 # end level 10
 
+
 # level 11
-def send_loan(session_id, deptor_phone_number, creditor_phone_number, amount=1):
+def send_loan(session_id, debptor_phone_number, creditor_phone_number, amount=1):
     # Find and update creditor
-    creditorAccount = User.query.filter_by(phone_number=creditor_phone_number).first()
+    creditorAccount = User.query.filter_by(
+        phone_number=creditor_phone_number).first()
     creditorAccount.withdraw(amount)
     # Send the loan if new account balance is above 0
     if creditorAccount.account > 0:
         menu_text = "END We are sending KES {}/- \n".format(amount)
         menu_text += "to the loanee shortly. \n"
         # get and update Debtor
-        deptorAccount = User.query.filter_by(phone_number=deptor_phone_number).first()
+        debptorAccount = User.query.filter_by(
+            phone_number=debptor_phone_number).first()
 
-        if deptorAccount:
-            deptorAccount.deposit(amount)
-            db.session.add(deptorAccount)
+        if debptorAccount:
+            debptorAccount.deposit(amount)
+            db.session.add(debptorAccount)
             db.session.add(creditorAccount)
 
         # SMS New Balance
         code = '20880'
         recepients = creditor_phone_number
-        message = "We have sent {}/- to {} If this is a wrong number the transaction will fail" \
-                      "Your new balance is {} Thank you.".format(amount, creditor_phone_number,
-                                                                 creditorAccount.account)
+        message = "We have sent {}/- to {} If \
+        this is a wrong number the transaction will fail" \
+            "Your new balance is {} \
+            Thank you.".format(amount, creditor_phone_number,
+                               creditorAccount.account)
         gateway = make_gateway()
         try:
             gateway.sendMessage(recepients, message, code)
         except AfricasTalkingGatewayException as e:
             print "Encountered an error while sending: {}\n".format(str(e))
 
-
+        # TODO figure out
         # change user level to 0
         # session_level = SessionLevel.query.filter_by(session_id=session_id).first()
         # session_level.demote_level()
@@ -337,19 +371,141 @@ def send_loan(session_id, deptor_phone_number, creditor_phone_number, amount=1):
         db.session.commit()
 
         # respond
-        menu_text += "CONFIRMED we have sent money to {} \n".format(creditorAccount.phone_number)
+        menu_text += "CONFIRMED we have sent money to {} \n".format(
+            creditorAccount.phone_number)
     else:
         # respond
         menu_text = "END Sorry we could not send the money. \n"
-        menu_text += "You dont have enough money. {}\n".format(creditorAccount.account)
+        menu_text += "You dont have enough money. {}\n".format(
+            creditorAccount.account)
 
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
 
+def pay_loan(session_id, phone_number, amount):
+    """
+    Pay Loan
+    :param session_id, amount:
+    :return response object:
+    """
+    # Alert user of incoming Mpesa checkout
+    menu_text = "END You are repaying {}/-. \
+    We have sent the MPESA \
+    checkout...\n".format(
+        amount)
+    menu_text += "If you dont have a bonga pin, dial \n"
+    menu_text += "Dial dial *126*5*1# to create.\n"
+
+    # Declare Params
+    gateway = make_gateway()
+    productName = "Nerd Payments"
+    currencyCode = "KES"
+    amount = amount
+    metadata = {"Sacco Repayment": "Nerds", "productId": "321"}
+
+    # pass to gateway
+    try:
+        transactionId = gateway.initiateMobilePaymentCheckout(
+            productName, phone_number, currencyCode, amount,
+            metadata)
+    except AfricasTalkingGatewayException as e:
+        print "Received error response: {}".format(str(e))
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+
+def default_loan_checkout():
+    menu_text = "END Apologies, something went wrong... \n"
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+
+def default_higher_level_response():
+    # Request for city again
+    menu_text = "END Apologies, something went wrong... \n"
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+# end higher level responses
+
+def get_number(session_id, phone_number):
+    # insert user's phone number
+    new_user = User(phone_number=phone_number)
+    db.session.add(new_user)
+
+    # create a new sessionlevel
+    session_level = SessionLevel(session_id=session_id, phone_number=phone_number)
+
+    # promote the user a higher session level
+    session_level.promote_level()
+    db.session.add(session_level)
+    db.session.commit()
+    menu_text = "CON Please enter your name"
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+
+def get_name(session_id, phone_number, user_response):
+    # Request again for name - level has not changed...
+    if user_response:
+
+        # insert user name into db request for city
+        new_user = User.query.filter_by(phone_number=phone_number).first()
+        new_user.name = user_response
+
+        # graduate user level
+        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        session_level.promote_level()
+        db.session.add(session_level)
+        db.session.add(new_user)
+        menu_text = "CON Enter your city"
+
+    else:
+        menu_text = "CON Name not supposed to be empty. Please enter your name \n"
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+
+def get_city(session_id, phone_number, user_response):
+    if user_response:
+
+        # if user response is not an empty string
+        # insert user city into db request for city
+        new_user = User.query.filter_by(phone_number=phone_number).first()
+        new_user.city = user_response
+
+        # demote user level to 0
+        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        session_level.demote_level()
+        db.session.add(session_level)
+        db.session.add(new_user)
+        db.session.commit()
+        menu_text = "END You have been successfully registered. \n"
+
+    else:
+
+        # if user response is an empty string
+        # Request again for city - level has not changed...
+        menu_text = "CON City not supposed to be empty. Please enter your city \n"
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
+def register_default(session_id):
+    menu_text = "END Apologies something went wrong \n"
+
+    # Print the response onto the page so that our gateway can read it
+    return respond(menu_text)
+
 # utils
 def update_session(session_id, session_level, level):
-    session_level = session_level.query.filter_by(session_id=session_id).first()
+    session_level = session_level.query.filter_by(
+        session_id=session_id).first()
     session_level.promote_level(level)
     db.session.add(session_level)
     db.session.commit()
@@ -362,4 +518,6 @@ def respond(menu_text):
 
 
 def make_gateway():
-    return AfricasTalkingGateway(current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"], "sandbox")
+    return AfricasTalkingGateway(
+        current_app.config["AT_USERNAME"],
+        current_app.config["AT_APIKEY"], "sandbox")
