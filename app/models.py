@@ -11,6 +11,7 @@ class User(db.Model):
     city = db.Column(db.String(64))
     registration_date = db.Column(db.DateTime(), default=datetime.utcnow)
     password_hash = db.Column(db.String(128))
+    account = db.Column(db.Integer, default=10)
 
     @property
     def password(self):
@@ -26,6 +27,12 @@ class User(db.Model):
     def __repr__(self):
         return "User {}".format(self.name)
 
+    def deposit(self, amount):
+        self.account += amount
+
+    def withdraw(self, amount):
+        self.account -= amount
+
 
 class SessionLevel(db.Model):
     __tablename__ = 'session_levels'
@@ -35,7 +42,7 @@ class SessionLevel(db.Model):
     level = db.Column(db.Integer, default=0)
 
     def promote_level(self, level=1):
-        self.level += level
+        self.level = level
 
     def demote_level(self):
         self.level = 0
