@@ -36,6 +36,7 @@ better still look at the code :-)
     Werkzeug==0.12.1
 
 -> The project is currently not compatible with future python version
+
 -> Recommendend running the project in a virtual environment
 
 # installation
