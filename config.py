@@ -11,7 +11,7 @@ class Config:
     """
     General configuration variables
     """
-    AT_APIKEY = "b54c975407d4899c33a6ebc50975546545ebd313d1bf7933199ca99167cc49b4"
+    AT_APIKEY = "713e6f29a182a97af25bd4951c91270407ffcbcddfaa83b18fc4db875b80a78b"
     AT_USERNAME = "darklotus"
     SECRET_KEY = os.environ.get('SECRETE_KEY') or str(uuid.uuid4())
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
