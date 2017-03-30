@@ -48,7 +48,7 @@ def ussd_callback():
         11: {
             "default": send_loan(session_id=session_id,
                                  creditor_phone_number=phone_number,
-                                 deptor_phone_number=user_response)
+                                 debptor_phone_number=user_response)
         },
         12: {
             "4": pay_loan(session_id=session_id, phone_number=phone_number, amount=1),
@@ -56,33 +56,44 @@ def ussd_callback():
             "6": pay_loan(session_id=session_id, phone_number=phone_number, amount=3),
             "default": default_loan_checkout()
         },
-        "default":{
+        "default": {
             "default": default_loan_checkout()
         }
     }
 
     register_user = {
-        0: get_number(session_id, phone_number=phone_number, user_response=user_response),
+        0: get_number(session_id, phone_number=phone_number),
         1: get_name(session_id, phone_number=phone_number, user_response=user_response),
         2: get_city(session_id, phone_number=phone_number, user_response=user_response),
         "default": register_default(session_id)
     }
+
+    # get user and if user is not present register user
     user = User.query.filter_by(phone_number=phone_number).first()
-    if user:
+    if user is not None:
         session_level = SessionLevel.query.filter_by(
             session_id=session_id).first()
+        # if session is registered serve appropriate menu else serve the first
+        # menu
         if session_level:
+                # if the user has a entered a response serve appropriate menu
+                # else serve the default menu
             if user_response:
-                if session_level.level == 1 or session_level.level == 0:
+                # lower menus are handled by session level 1 and 0
+                if session_level.level < 2:
                     # serve lower reponses
                     return lowerUserLevels[user_response](
                         user=user,
                         session_id=session_id)
                 else:
+                        # higher menus handled by session levels 4, 5, 6
+                        # else the default higher level menu is served
                     if session_level in higherLevelResponses.keys():
                         # serve higher responses
                         level = session_level.level
-                        if len(user_response) >0 and len(user_response) < 1:
+                        # serve higher level responses only when the user response is 4, 5, 6
+                        # else serve the default menu for the respective level
+                        if len(user_response) < 2:
                             return higherLevelResponses[level].get(user_response)
                         else:
                             return higherLevelResponses[level].get('default')
@@ -96,9 +107,17 @@ def ussd_callback():
                 phone_number=phone_number, session_id=session_id)
             db.session.add(session_level)
             db.session.commit()
+            # serve home menu
             return home(user=user, session_id=session_id)
     else:
-        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        # if user is not register
+        # check if the user has a session level
+        # if session level is present
+        # serve an appropriate registration menu
+        # else start registering user
+        # else return default user egistration menu
+        session_level = SessionLevel.query.filter_by(
+            session_id=session_id).first()
         if session_level and session_level.level in register_user.keys():
             return register_user[session_level.level]
         elif session_level is None:
@@ -107,6 +126,8 @@ def ussd_callback():
             return register_user["default"]
 
 # level 1
+
+
 def home(user, session_id):
     """
     If user level is zero or zero
@@ -348,7 +369,7 @@ def send_loan(session_id, debptor_phone_number, creditor_phone_number, amount=1)
             db.session.add(creditorAccount)
 
         # SMS New Balance
-        code = '20880'
+        code = '20080'
         recepients = creditor_phone_number
         message = "We have sent {}/- to {} If \
         this is a wrong number the transaction will fail" \
@@ -431,13 +452,15 @@ def default_higher_level_response():
 
 # end higher level responses
 
+
 def get_number(session_id, phone_number):
     # insert user's phone number
     new_user = User(phone_number=phone_number)
     db.session.add(new_user)
 
     # create a new sessionlevel
-    session_level = SessionLevel(session_id=session_id, phone_number=phone_number)
+    session_level = SessionLevel(
+        session_id=session_id, phone_number=phone_number)
 
     # promote the user a higher session level
     session_level.promote_level()
@@ -458,7 +481,8 @@ def get_name(session_id, phone_number, user_response):
         new_user.name = user_response
 
         # graduate user level
-        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        session_level = SessionLevel.query.filter_by(
+            session_id=session_id).first()
         session_level.promote_level()
         db.session.add(session_level)
         db.session.add(new_user)
@@ -480,7 +504,8 @@ def get_city(session_id, phone_number, user_response):
         new_user.city = user_response
 
         # demote user level to 0
-        session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+        session_level = SessionLevel.query.filter_by(
+            session_id=session_id).first()
         session_level.demote_level()
         db.session.add(session_level)
         db.session.add(new_user)
@@ -496,6 +521,7 @@ def get_city(session_id, phone_number, user_response):
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
+
 def register_default(session_id):
     menu_text = "END Apologies something went wrong \n"
 
@@ -503,6 +529,8 @@ def register_default(session_id):
     return respond(menu_text)
 
 # utils
+
+
 def update_session(session_id, session_level, level):
     session_level = session_level.query.filter_by(
         session_id=session_id).first()
