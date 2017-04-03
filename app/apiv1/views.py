@@ -8,7 +8,9 @@ from . import api_v1
 
 @api_v1.route('/', methods=['POST', 'GET'])
 def index():
+
     return respond("END connection ok")
+
 
 
 @api_v1.route('/ussd/callback', methods=['POST', 'GET'])
@@ -28,12 +30,15 @@ def ussd_callback():
         "3": withdraw,
         "4": send_money,
         "5": buy_airtime,
+
         "6": pay_loan_menu,
+
         "default": default_menu
     }
 
     higherLevelResponses = {
         9: {
+
             # user_response : c2b_checkout(phone_number= phone_number, amount = int(user_response))
             "1": c2b_checkout,
             "2": c2b_checkout,
@@ -62,18 +67,22 @@ def ussd_callback():
         },
         "default": {
             "default": default_loan_checkout
+
         }
     }
 
     register_user = {
+
         0: get_number,    # params = (session_id, phone_number=phone_number)
         21: get_name,      # params = (session_id, phone_number=phone_number, user_response=user_response)
         22: get_city,      # params = (session_id, phone_number=phone_number, user_response=user_response)
         "default": register_default,    # params = (session_id)
+
     }
 
     # get user and if user is not present register user
     user = User.query.filter_by(phone_number=phone_number).first()
+
     Session = SessionLevel.query.filter_by(
         session_id=session_id).first()
     if user:
@@ -86,11 +95,13 @@ def ussd_callback():
             if user_response:
                 # lower menus are handled by session level 1 and 0
                 if level < 2:
+
                     # serve lower reponses
                     return lowerUserLevels[user_response](
                         user=user,
                         session_id=session_id)
                 else:
+
                     # higher menus handled by session levels 9, 10, 11, 12
                     #  else the default higher level menu is served
                     if level == 9:
@@ -127,16 +138,19 @@ def ussd_callback():
                             return register_user["default"]()
                     else:
                         return higherLevelResponses["default"].get("default")()
+
             else:
                 return default_menu(user, session_id)
         else:
             # add a new session level
+
             add_session(session_id=session_id, phone_number=phone_number)
             # serve home menu
             return home(user=user, session_id=session_id)
     else:
         # start user registration proccess
         return register_user[0](session_id, phone_number=phone_number)
+
 # level 1
 
 
@@ -230,6 +244,7 @@ def buy_airtime(user, session_id=None):
     menu_text = "END Please wait while we load your account.\n"
 
     # Search DB and the Send Airtime
+
     recipientStringFormat = [{"phoneNumber": user.phone_number, "amount": "KES 5"}]
 
     # Create an instance of our gateway
@@ -244,7 +259,9 @@ def buy_airtime(user, session_id=None):
     return respond(menu_text)
 
 
+
 def pay_loan_menu(session_id, user):
+
     # Ask how much and Launch the Mpesa Checkout to the user
     menu_text = "CON How much are you depositing?\n"
     menu_text += " 4. 1 Shilling.\n"
@@ -253,7 +270,9 @@ def pay_loan_menu(session_id, user):
 
     # Update sessions to level 9
     session_level = SessionLevel.query.filter_by(session_id=session_id).first()
+
     session_level.promote_level(12)
+
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
@@ -325,16 +344,22 @@ def b2c_checkout(phone_number, amount):
         menu_text += " KES {}/- shortly... \n".format(amount)
 
         # Declare Params
+
         gateway = make_gateway()
+
         product_name = "Nerd Payments"
         recipients = [
             {"phoneNumber": phone_number,
              "currencyCode": "KES",
+
              "amount": amount, "metadata":
+
                  {
                      "name": "Client",
                      "reason": "Withdrawal"
                  }
+
+
              }
         ]
         # Send B2c
@@ -344,7 +369,9 @@ def b2c_checkout(phone_number, amount):
             menu_text += "Received error response {}".format(str(e))
     else:
         # Alert user of insufficient funds
+
         menu_text = "END Sorry, you don't have sufficient\n"
+
         menu_text += " funds in your account \n"
 
     return respond(menu_text)
@@ -413,6 +440,7 @@ def send_loan(session_id, debptor_phone_number, creditor_phone_number, amount=1)
 
 
 def repay_loan(phone_number, amount):
+
     """
     Pay Loan
     :param session_id, amount:
@@ -465,13 +493,17 @@ def get_number(session_id, phone_number):
     # insert user's phone number
     new_user = User(phone_number=phone_number)
     db.session.add(new_user)
+
     db.session.commit()
+
     # create a new sessionlevel
     session_level = SessionLevel(
         session_id=session_id, phone_number=phone_number)
 
     # promote the user a higher session level
+
     session_level.promote_level(21)
+
     db.session.add(session_level)
     db.session.commit()
     menu_text = "CON Please enter your name"
@@ -480,7 +512,9 @@ def get_number(session_id, phone_number):
     return respond(menu_text)
 
 
+
 def get_name(session_id, phone_number, user_response=None):
+
     # Request again for name - level has not changed...
     if user_response:
 
@@ -491,7 +525,9 @@ def get_name(session_id, phone_number, user_response=None):
         # graduate user level
         session_level = SessionLevel.query.filter_by(
             session_id=session_id).first()
+
         session_level.promote_level(22)
+
         db.session.add(session_level)
         db.session.add(new_user)
         menu_text = "CON Enter your city"
@@ -559,9 +595,11 @@ def make_gateway():
         current_app.config["AT_APIKEY"], "sandbox")
 
 
+
 def add_session(session_id, phone_number):
     session = SessionLevel(
         phone_number=phone_number, session_id=session_id)
     db.session.add(session)
     db.session.commit()
     return session
+
