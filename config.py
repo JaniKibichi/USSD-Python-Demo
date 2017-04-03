@@ -11,13 +11,13 @@ class Config:
     """
     General configuration variables
     """
-    AT_APIKEY = "713e6f29a182a97af25bd4951c91270407ffcbcddfaa83b18fc4db875b80a78b"
+    AT_APIKEY = "3b7af98d0e2fb886898dc495c4e8e235764ecaf1a843caa4fbd92bf116aa1bb7"
     AT_USERNAME = "darklotus"
     SECRET_KEY = os.environ.get('SECRETE_KEY') or str(uuid.uuid4())
     SQLALCHEMY_COMMIT_ON_TEARDOWN = True
     USSD_MAIL_SUBJECT_PREFIX = '[USSD]'
     USSD_MAIL_SENDER = 'USSD admin'
-    USSD_ADMIN = os.environ.get('FLASKY_ADMIN') or 'npiusdan@gmail.com'
+    USSD_ADMIN = os.environ.get('USSD_ADMIN') or 'npiusdan@gmail.com'
     SSL_DISABLE = True
 
     @staticmethod

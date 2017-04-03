@@ -8,7 +8,7 @@ from . import api_v1
 
 @api_v1.route('/', methods=['POST', 'GET'])
 def index():
-    return jsonify({"message": "ok"})
+    return respond("END connection ok")
 
 
 @api_v1.route('/ussd/callback', methods=['POST', 'GET'])
@@ -28,103 +28,115 @@ def ussd_callback():
         "3": withdraw,
         "4": send_money,
         "5": buy_airtime,
-        "6": pay_loan,
+        "6": pay_loan_menu,
         "default": default_menu
     }
 
     higherLevelResponses = {
         9: {
-            "1": c2b_checkout(phone_number, 1),
-            "2": c2b_checkout(phone_number, 2),
-            "3": c2b_checkout(phone_number, 3),
-            "default": default_mpesa_checkout()
+            # user_response : c2b_checkout(phone_number= phone_number, amount = int(user_response))
+            "1": c2b_checkout,
+            "2": c2b_checkout,
+            "3": c2b_checkout,
+            "default": default_mpesa_checkout
         },
         10: {
-            "1": b2c_checkout(phone_number, 1),
-            "2": b2c_checkout(phone_number, 2),
-            "3": b2c_checkout(phone_number, 3),
-            "default": b2c_default()
+            # user_response : b2c_checkout(phone_number=phone_number, amount=int(user_response))
+            "1": b2c_checkout,
+            "2": b2c_checkout,
+            "3": b2c_checkout,
+            "default": b2c_default
         },
         11: {
-            "default": send_loan(session_id=session_id,
-                                 creditor_phone_number=phone_number,
-                                 debptor_phone_number=user_response)
+            # "default": send_loan(session_id=session_id,
+            #                      creditor_phone_number=phone_number,
+            #                      debptor_phone_number=user_response)
+            "default": send_loan
         },
         12: {
-            "4": pay_loan(session_id=session_id, phone_number=phone_number, amount=1),
-            "5": pay_loan(session_id=session_id, phone_number=phone_number, amount=2),
-            "6": pay_loan(session_id=session_id, phone_number=phone_number, amount=3),
-            "default": default_loan_checkout()
+            # "4": re_pay_loan(session_id, phone_number, amount)
+            "4": repay_loan,    # 1
+            "5": repay_loan,    # 2
+            "6": repay_loan,    # 3
+            "default": default_loan_checkout
         },
         "default": {
-            "default": default_loan_checkout()
+            "default": default_loan_checkout
         }
     }
 
     register_user = {
-        0: get_number(session_id, phone_number=phone_number),
-        1: get_name(session_id, phone_number=phone_number, user_response=user_response),
-        2: get_city(session_id, phone_number=phone_number, user_response=user_response),
-        "default": register_default(session_id)
+        0: get_number,    # params = (session_id, phone_number=phone_number)
+        21: get_name,      # params = (session_id, phone_number=phone_number, user_response=user_response)
+        22: get_city,      # params = (session_id, phone_number=phone_number, user_response=user_response)
+        "default": register_default,    # params = (session_id)
     }
 
     # get user and if user is not present register user
     user = User.query.filter_by(phone_number=phone_number).first()
-    if user is not None:
-        session_level = SessionLevel.query.filter_by(
-            session_id=session_id).first()
+    Session = SessionLevel.query.filter_by(
+        session_id=session_id).first()
+    if user:
         # if session is registered serve appropriate menu else serve the first
         # menu
-        if session_level:
-                # if the user has a entered a response serve appropriate menu
-                # else serve the default menu
+        if Session:
+            level = Session.level
+            # if the user has a entered a response serve appropriate menu
+            # else serve the default menu
             if user_response:
                 # lower menus are handled by session level 1 and 0
-                if session_level.level < 2:
+                if level < 2:
                     # serve lower reponses
                     return lowerUserLevels[user_response](
                         user=user,
                         session_id=session_id)
                 else:
-                        # higher menus handled by session levels 4, 5, 6
-                        # else the default higher level menu is served
-                    if session_level in higherLevelResponses.keys():
-                        # serve higher responses
-                        level = session_level.level
-                        # serve higher level responses only when the user response is 4, 5, 6
-                        # else serve the default menu for the respective level
-                        if len(user_response) < 2:
-                            return higherLevelResponses[level].get(user_response)
+                    # higher menus handled by session levels 9, 10, 11, 12
+                    #  else the default higher level menu is served
+                    if level == 9:
+                        return higherLevelResponses[level].get(
+                            user_response or "default")(
+                            phone_number=phone_number,
+                            amount=int(user_response)
+                        )
+                    elif level == 10:
+                        return higherLevelResponses[level].get(
+                            user_response or "default")(
+                            phone_number=phone_number,
+                            amount=int(user_response)
+                        )
+                    elif level == 11:
+                        return higherLevelResponses[level].get("default")(
+                            session_id=session_id,
+                            creditor_phone_number=phone_number,
+                            debptor_phone_number=user_response
+                        )
+                    elif level == 12:
+                        return higherLevelResponses[level].get(
+                            user_response or "default")(
+                            phone_number=phone_number,
+                            amount=int(user_response)
+                        )
+                    # continue registration of new user
+                    elif level >= 21:
+                        if level == 21:
+                            return register_user[level](session_id, phone_number=phone_number, user_response=user_response)
+                        elif level == 22:
+                            return register_user[level](session_id, phone_number=phone_number, user_response=user_response)
                         else:
-                            return higherLevelResponses[level].get('default')
+                            return register_user["default"]()
                     else:
-                        return default_higher_level_response["default"].get('default')
+                        return higherLevelResponses["default"].get("default")()
             else:
                 return default_menu(user, session_id)
         else:
             # add a new session level
-            session_level = SessionLevel(
-                phone_number=phone_number, session_id=session_id)
-            db.session.add(session_level)
-            db.session.commit()
+            add_session(session_id=session_id, phone_number=phone_number)
             # serve home menu
             return home(user=user, session_id=session_id)
     else:
-        # if user is not register
-        # check if the user has a session level
-        # if session level is present
-        # serve an appropriate registration menu
-        # else start registering user
-        # else return default user egistration menu
-        session_level = SessionLevel.query.filter_by(
-            session_id=session_id).first()
-        if session_level and session_level.level in register_user.keys():
-            return register_user[session_level.level]
-        elif session_level is None:
-            return register_user[1]
-        else:
-            return register_user["default"]
-
+        # start user registration proccess
+        return register_user[0](session_id, phone_number=phone_number)
 # level 1
 
 
@@ -218,9 +230,7 @@ def buy_airtime(user, session_id=None):
     menu_text = "END Please wait while we load your account.\n"
 
     # Search DB and the Send Airtime
-    recipients = [{"phoneNumber": user.phone_number, "amount": "KES 5"}]
-    # JSON encode
-    recipientStringFormat = json.dumps(recipients)
+    recipientStringFormat = [{"phoneNumber": user.phone_number, "amount": "KES 5"}]
 
     # Create an instance of our gateway
     gateway = AfricasTalkingGateway(
@@ -234,7 +244,7 @@ def buy_airtime(user, session_id=None):
     return respond(menu_text)
 
 
-def pay_loan(session_id, user=None):
+def pay_loan_menu(session_id, user):
     # Ask how much and Launch the Mpesa Checkout to the user
     menu_text = "CON How much are you depositing?\n"
     menu_text += " 4. 1 Shilling.\n"
@@ -243,7 +253,7 @@ def pay_loan(session_id, user=None):
 
     # Update sessions to level 9
     session_level = SessionLevel.query.filter_by(session_id=session_id).first()
-    session_level.promote_level(9)
+    session_level.promote_level(12)
     # Print the response onto the page so that our gateway can read it
     return respond(menu_text)
 
@@ -315,18 +325,16 @@ def b2c_checkout(phone_number, amount):
         menu_text += " KES {}/- shortly... \n".format(amount)
 
         # Declare Params
-        gateway = AfricasTalkingGateway(
-            current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
+        gateway = make_gateway()
         product_name = "Nerd Payments"
         recipients = [
             {"phoneNumber": phone_number,
              "currencyCode": "KES",
-             "amount": amount, "metadata": [
+             "amount": amount, "metadata":
                  {
                      "name": "Client",
                      "reason": "Withdrawal"
                  }
-             ]
              }
         ]
         # Send B2c
@@ -336,7 +344,7 @@ def b2c_checkout(phone_number, amount):
             menu_text += "Received error response {}".format(str(e))
     else:
         # Alert user of insufficient funds
-        menu_text = "END Sorry, you dont have sufficient\n"
+        menu_text = "END Sorry, you don't have sufficient\n"
         menu_text += " funds in your account \n"
 
     return respond(menu_text)
@@ -404,7 +412,7 @@ def send_loan(session_id, debptor_phone_number, creditor_phone_number, amount=1)
     return respond(menu_text)
 
 
-def pay_loan(session_id, phone_number, amount):
+def repay_loan(phone_number, amount):
     """
     Pay Loan
     :param session_id, amount:
@@ -457,13 +465,13 @@ def get_number(session_id, phone_number):
     # insert user's phone number
     new_user = User(phone_number=phone_number)
     db.session.add(new_user)
-
+    db.session.commit()
     # create a new sessionlevel
     session_level = SessionLevel(
         session_id=session_id, phone_number=phone_number)
 
     # promote the user a higher session level
-    session_level.promote_level()
+    session_level.promote_level(21)
     db.session.add(session_level)
     db.session.commit()
     menu_text = "CON Please enter your name"
@@ -472,7 +480,7 @@ def get_number(session_id, phone_number):
     return respond(menu_text)
 
 
-def get_name(session_id, phone_number, user_response):
+def get_name(session_id, phone_number, user_response=None):
     # Request again for name - level has not changed...
     if user_response:
 
@@ -483,7 +491,7 @@ def get_name(session_id, phone_number, user_response):
         # graduate user level
         session_level = SessionLevel.query.filter_by(
             session_id=session_id).first()
-        session_level.promote_level()
+        session_level.promote_level(22)
         db.session.add(session_level)
         db.session.add(new_user)
         menu_text = "CON Enter your city"
@@ -549,3 +557,11 @@ def make_gateway():
     return AfricasTalkingGateway(
         current_app.config["AT_USERNAME"],
         current_app.config["AT_APIKEY"], "sandbox")
+
+
+def add_session(session_id, phone_number):
+    session = SessionLevel(
+        phone_number=phone_number, session_id=session_id)
+    db.session.add(session)
+    db.session.commit()
+    return session
