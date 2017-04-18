@@ -26,7 +26,6 @@ def create_app(config_name):
     from apiv2 import api_v11 as api11_blueprint
     app.register_blueprint(api11_blueprint, url_prefix='/api/v1.1')
 
-
     if not app.debug and not app.testing and not app.config['SSL_DISABLE']:
         from flask_sslify import SSLify
         sslify = SSLify(app)
