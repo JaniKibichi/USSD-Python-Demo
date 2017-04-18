@@ -51,16 +51,16 @@ class LowerLevelMenu:
         menu_text = "END Please wait while we place your call.\n"
 
         # make a call
-        caller = "+254703554404"
-        recepient = self.user.phone_number
+        caller = current_app.config["AT_NUMBER"]
+        to = self.user.phone_number
 
         # create a new instance of our awesome gateway
         gateway = AfricasTalkingGateway(
             current_app.config["AT_USERNAME"], current_app.config["AT_APIKEY"])
         try:
-            gateway.call(caller, recepient)
+            gateway.call(caller, to)
         except AfricasTalkingGateway as e:
-            menu_text = "Encountered an error when calling: {}".format(str(e))
+            print "Encountered an error when calling: {}".format(str(e))
 
         # print the response on to the page so that our gateway can read it
         return respond(menu_text)
@@ -272,10 +272,10 @@ class HighLevelMenu:
             # SMS New Balance
             code = '20080'
             recepients = self.phone_number
-            message = "We have sent {}/- to {} If \
-            this is a wrong number the transaction will fail" \
-                      "Your new balance is {} \
-                      Thank you.".format(amount, debptor_phone_number,
+            message = "We have sent {}/- to {} \nIf \
+            this is a wrong number the transaction will fail\n" \
+                      "Your new balance is {} \n\
+                      Thank you.\n".format(amount, debptor_phone_number,
                                          creditorAccount.account)
             gateway = make_gateway()
             try:
