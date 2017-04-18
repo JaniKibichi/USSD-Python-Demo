@@ -1,4 +1,4 @@
-from flask import request, url_for
+from flask import request, url_for, send_from_directory
 from ..models import User, SessionLevel
 from .utils import respond, add_session
 from . import api_v11
@@ -203,8 +203,7 @@ def voice_menu():
             response = '<?xml version="1.0" encoding="UTF-8"?>'
             response += '<Response>'
             response += '<Say>Please hold while we connect you to Sales.</Say>'
-            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(
-                url_for('static', filename='media/sautiFinalemoney.mp3'))
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
             response += '</Response>'
 
             # Print the response onto the page so that our gateway can read it
@@ -215,7 +214,7 @@ def voice_menu():
             response = '<?xml version="1.0" encoding="UTF-8"?>'
             response += '<Response>'
             response += '<Say>Please hold while we connect you to Support.</Say>'
-            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="http://62.12.117.25:8010/media/SautiFinaleMoney.mp3"/>'
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
             response += '</Response>'
 
             # Print the response onto the page so that our gateway can read it
@@ -224,7 +223,7 @@ def voice_menu():
             # 2d. Redirect to the main IVR-
             response = '<?xml version="1.0" encoding="UTF-8"?>'
             response += '<Response>'
-            response += '<Redirect>https://b11cd817.ngrok.io/MfUSSD/voiceCall.php</Redirect>'
+            response += '<Redirect>{}</Redirect>'.format(url_for('voice_callback'))
             response += '</Response>'
 
             # Print the response onto the page so that our gateway can read it
@@ -234,7 +233,7 @@ def voice_menu():
             response = '<?xml version="1.0" encoding="UTF-8"?>'
             response += '<Response>'
             response += '<Say>Please hold while we connect you to Support.</Say>'
-            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="http://62.12.117.25:8010/media/SautiFinaleMoney.mp3"/>'
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
             response += '</Response>'
 
             # Print the response onto the page so that our gateway can read it
@@ -253,3 +252,7 @@ def voice_menu():
         status = request.get('status')
 
         # 3a. Store the data, write your SQL statements here-
+
+@api_v11.route('/media/<path:path>')
+def media(path):
+    return send_from_directory('media', path)

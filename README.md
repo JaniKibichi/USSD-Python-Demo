@@ -357,82 +357,81 @@ d) The instructions are to respond with a text to speech message for the user to
 e) When the user enters the digit - in this case 0, 1 or 2, this digit is submitted to another route also in our views.py file which lives at https://49af2317.ngrok.io/api/v1.1/voice/menu and which switches between the various dtmf digits to make an outgoing call to the right recipient, who will be bridged to speak to the person currently listening to music on hold. We specify this music with the ringtone flag as follows: ringbackTone="url_to/static/media/SautiFinaleMoney.mp3"
 
 ```python
-    @api_v11.route('/voice/menu')
-    def voice_menu():
-        """
-        When the user enters the digit - in this case 0, 1 or 2, this route 
-        switches between the various dtmf digits to 
-        make an outgoing call to the right recipient, who will be 
-        bridged to speak to the person currently listening to music on hold. 
-        We specify this music with the ringtone flag as follows: 
-        ringbackTone="url_to/static/media/SautiFinaleMoney.mp3"
-        """
+   @api_v11.route('/voice/menu')
+def voice_menu():
+    """
+    When the user enters the digit - in this case 0, 1 or 2, this route 
+    switches between the various dtmf digits to 
+    make an outgoing call to the right recipient, who will be 
+    bridged to speak to the person currently listening to music on hold. 
+    We specify this music with the ringtone flag as follows: 
+    ringbackTone="url_to/static/media/SautiFinaleMoney.mp3"
+    """
 
-        # 1. Receive POST from AT
-        isActive = request.get('isActive')
-        callerNumber = request.get('callerNumber')
-        dtmfDigits = request.get('dtmfDigits')
-        sessionId = request.get('sessionId')
-        # Check if isActive=1 to act on the call or isActive=='0' to store the
-        # result
+    # 1. Receive POST from AT
+    isActive = request.get('isActive')
+    callerNumber = request.get('callerNumber')
+    dtmfDigits = request.get('dtmfDigits')
+    sessionId = request.get('sessionId')
+    # Check if isActive=1 to act on the call or isActive=='0' to store the
+    # result
 
-        if (isActive == '1'):
-                # 2a. Switch through the DTMFDigits
-            if (dtmfDigits == "0"):
-                # Compose response - talk to sales-
-                response = '<?xml version="1.0" encoding="UTF-8"?>'
-                response += '<Response>'
-                response += '<Say>Please hold while we connect you to Sales.</Say>'
-                response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(
-                    url_for('static', filename='media/sautiFinalemoney.mp3'))
-                response += '</Response>'
+    if (isActive == '1'):
+            # 2a. Switch through the DTMFDigits
+        if (dtmfDigits == "0"):
+            # Compose response - talk to sales-
+            response = '<?xml version="1.0" encoding="UTF-8"?>'
+            response += '<Response>'
+            response += '<Say>Please hold while we connect you to Sales.</Say>'
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
+            response += '</Response>'
 
-                # Print the response onto the page so that our gateway can read it
-                return respond(response)
+            # Print the response onto the page so that our gateway can read it
+            return respond(response)
 
-            elif (dtmfDigits == "1"):
-                # 2c. Compose response - talk to support-
-                response = '<?xml version="1.0" encoding="UTF-8"?>'
-                response += '<Response>'
-                response += '<Say>Please hold while we connect you to Support.</Say>'
-                response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="http://62.12.117.25:8010/media/SautiFinaleMoney.mp3"/>'
-                response += '</Response>'
+        elif (dtmfDigits == "1"):
+            # 2c. Compose response - talk to support-
+            response = '<?xml version="1.0" encoding="UTF-8"?>'
+            response += '<Response>'
+            response += '<Say>Please hold while we connect you to Support.</Say>'
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
+            response += '</Response>'
 
-                # Print the response onto the page so that our gateway can read it
-                return respond(response)
-            elif (dtmfDigits == "2"):
-                # 2d. Redirect to the main IVR-
-                response = '<?xml version="1.0" encoding="UTF-8"?>'
-                response += '<Response>'
-                response += '<Redirect>https://b11cd817.ngrok.io/MfUSSD/voiceCall.php</Redirect>'
-                response += '</Response>'
+            # Print the response onto the page so that our gateway can read it
+            return respond(response)
+        elif (dtmfDigits == "2"):
+            # 2d. Redirect to the main IVR-
+            response = '<?xml version="1.0" encoding="UTF-8"?>'
+            response += '<Response>'
+            response += '<Redirect>{}</Redirect>'.format(url_for('voice_callback'))
+            response += '</Response>'
 
-                # Print the response onto the page so that our gateway can read it
-                return respond(response)
-            else:
-                # 2e. By default talk to support
-                response = '<?xml version="1.0" encoding="UTF-8"?>'
-                response += '<Response>'
-                response += '<Say>Please hold while we connect you to Support.</Say>'
-                response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="http://62.12.117.25:8010/media/SautiFinaleMoney.mp3"/>'
-                response += '</Response>'
-
-                # Print the response onto the page so that our gateway can read it
-                return respond(response)
+            # Print the response onto the page so that our gateway can read it
+            return respond(response)
         else:
-            # 3. Store the data from the POST
-            durationInSeconds = request.get('durationInSeconds')
-            direction = request.get('direction')
-            amount = request.get('amount')
-            callerNumber = request.get('callerNumber')
-            destinationNumber = request.get('destinationNumber')
-            sessionId = request.get('sessionId')
-            callStartTime = request.get('callStartTime')
-            isActive = request.get('isActive')
-            currencyCode = request.get('currencyCode')
-            status = request.get('status')
+            # 2e. By default talk to support
+            response = '<?xml version="1.0" encoding="UTF-8"?>'
+            response += '<Response>'
+            response += '<Say>Please hold while we connect you to Support.</Say>'
+            response += '<Dial phoneNumbers="880.welovenerds@ke.sip.africastalking.com" ringbackTone="{}"/>'.format(url_for('media', path='SautiFinaleMoney.mp3'))
+            response += '</Response>'
 
-            # 3a. Store the data, write your SQL statements here-
+            # Print the response onto the page so that our gateway can read it
+            return respond(response)
+    else:
+        # 3. Store the data from the POST
+        durationInSeconds = request.get('durationInSeconds')
+        direction = request.get('direction')
+        amount = request.get('amount')
+        callerNumber = request.get('callerNumber')
+        destinationNumber = request.get('destinationNumber')
+        sessionId = request.get('sessionId')
+        callStartTime = request.get('callStartTime')
+        isActive = request.get('isActive')
+        currencyCode = request.get('currencyCode')
+        status = request.get('status')
+
+        # 3a. Store the data, write your SQL statements here-
 ```
 
 When the agent/person picks up, the conversation can go on.
